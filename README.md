@@ -1,14 +1,25 @@
 # Didcot Airport Taxi
 
-Premium, SEO-first frontend for **Didcot Airport Taxi**, trading as **SamCab Transport Ltd.** — an automated airport taxi booking platform serving Didcot, Oxfordshire and the surrounding area.
+Premium, SEO-first booking platform for **Didcot Airport Taxi**, trading as **SamCab Transport Ltd.** — serving Didcot, Oxfordshire and the surrounding area.
+
+## Project layout
+
+```
+.
+├── src/                    # Public-facing Next.js 14 site (root of repo)
+├── admin/                  # Operator dashboard — Next.js 14 (port 3001)
+└── api/                    # FastAPI backend + SQLite (port 8000)
+```
+
+Three services that work together. The public site (`/`) talks to the FastAPI
+backend through its own Next.js API routes (`/api/booking`, `/api/track`), and
+the admin dashboard at `admin.<your-domain>` talks to the backend directly.
 
 ## Stack
 
-- **Next.js 14** (App Router, TypeScript) — SSR + static generation for top-tier SEO.
-- **Tailwind CSS** with a custom dark theme + restrained `#FF0000` accent.
-- **React Hook Form + Zod** for the multi-step booking flow.
-- **Framer Motion** for premium micro-interactions.
-- **next-sitemap** for sitemap + robots.txt generation.
+- **Public site (`src/`)** — Next.js 14 (App Router, TS), Tailwind, React Hook Form + Zod, Framer Motion, `next-sitemap`.
+- **Admin dashboard (`admin/`)** — Next.js 14 (App Router, TS), Tailwind, SWR, Recharts, JWT-based auth.
+- **Backend API (`api/`)** — FastAPI, SQLModel, SQLite (Postgres-ready), JWT, bcrypt, `pytest` + `ruff`.
 
 ## Highlights
 
@@ -21,19 +32,59 @@ Premium, SEO-first frontend for **Didcot Airport Taxi**, trading as **SamCab Tra
 
 ## Local development
 
+Run all three services in parallel (in three terminals).
+
 ```bash
+# 1) Backend API (FastAPI, port 8000)
+cd api
+uv venv .venv && source .venv/bin/activate     # or: python -m venv .venv
+uv pip install -e ".[dev]"                     # or: pip install -e ".[dev]"
+cp .env.example .env                           # rotate JWT_SECRET before prod
+uvicorn app.main:app --reload --port 8000
+
+# 2) Public site (Next.js, port 3000)
 npm install
-cp .env.example .env.local   # add tracking/webhook secrets as needed
-npm run dev                   # http://localhost:3000
+cp .env.example .env.local                     # set BACKEND_API_URL=http://localhost:8000
+npm run dev
+
+# 3) Admin dashboard (Next.js, port 3001)
+cd admin
+npm install
+cp .env.example .env.local                     # set NEXT_PUBLIC_API_URL=http://localhost:8000
+npm run dev
 ```
+
+Then sign into the admin dashboard at <http://localhost:3001/login> with
+`admin / admin`. **Rotate this immediately** in Settings → Users & access.
 
 ## Useful scripts
 
-- `npm run dev` — start the local dev server on port 3000.
-- `npm run build` — production build.
-- `npm run start` — start the production server.
-- `npm run lint` — Next.js ESLint config.
-- `npm run typecheck` — strict TypeScript checking.
+Public site (run from repo root):
+
+- `npm run dev` — dev server on port 3000.
+- `npm run build` / `npm run start` — production build + serve.
+- `npm run lint` / `npm run typecheck`.
+
+Admin dashboard (run from `admin/`):
+
+- `npm run dev` — dev server on port 3001.
+- `npm run build` / `npm run start` — production build + serve.
+- `npm run lint` / `npm run typecheck`.
+
+Backend (run from `api/`):
+
+- `uvicorn app.main:app --reload` — dev server on port 8000.
+- `pytest -q` — API test suite.
+- `ruff check . && ruff format .` — lint + format.
+
+## Deployment topology
+
+- `didcotairporttaxi.co.uk` → public site (Next.js, port 3000).
+- `admin.didcotairporttaxi.co.uk` → admin dashboard (Next.js, port 3001). The
+  app sets `X-Robots-Tag: noindex, nofollow` and `X-Frame-Options: DENY` so
+  the dashboard is never indexed.
+- `api.didcotairporttaxi.co.uk` → FastAPI backend (port 8000). Lock down with
+  TLS + `API_CORS_ORIGINS` listing only the two front-facing hosts.
 
 ## Environment variables
 
