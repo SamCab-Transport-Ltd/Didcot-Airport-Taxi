@@ -100,9 +100,34 @@ export async function POST(req: NextRequest) {
     ph: sha256((params.phone as string | undefined)?.replace(/\D/g, "")),
   };
 
+  const apiUrl = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL;
+  const forwardToBackend = async () => {
+    if (!apiUrl) return;
+    try {
+      await fetch(`${apiUrl.replace(/\/$/, "")}/public/track`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-forwarded-for": ip,
+          "user-agent": userAgent,
+          referer: req.headers.get("referer") || "",
+        },
+        body: JSON.stringify({
+          event,
+          params,
+          client_id: clientId,
+          page: (params.page as string | undefined) ?? req.headers.get("referer") ?? null,
+        }),
+      });
+    } catch {
+      /* noop */
+    }
+  };
+
   await Promise.all([
     forwardToGA4(event, params, clientId),
     forwardToMetaCAPI(event, params, userData, ip, userAgent),
+    forwardToBackend(),
   ]);
 
   const res = NextResponse.json({ ok: true });
